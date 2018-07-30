@@ -16,7 +16,7 @@ def shift_2pi(phase_angle1, phase_angle2, threshold):
     else:
         return False
 
-
+# finds whether you need to shift frequency up or down pi
 def shift_pi(phase_angle1, phase_angle2, threshold):
     if abs(phase_angle2 - phase_angle1) >= (1 - threshold) * math.pi and abs(phase_angle2 - phase_angle1) <= (
             1 + threshold) * math.pi:
@@ -29,7 +29,7 @@ def shift_pi(phase_angle1, phase_angle2, threshold):
 def finddistance(frequency, phase_angle):
     return (phase_angle * scipy.constants.c) / (4 * math.pi * frequency)
 
-
+# read all rgb images from folder
 def readColorImage(subdir):
     files = os.listdir(subdir)
     timestamp_color = []  # stores the equivalent rgb timestamps
@@ -41,7 +41,7 @@ def readColorImage(subdir):
     colormatrix = np.array(colormatrix)
     return colormatrix
 
-
+# read a single XYZ matrix
 def readXYZmatrix(src):
     with open(src) as f:
         data = f.readlines()
@@ -60,7 +60,7 @@ def readXYZmatrix(src):
     matrix = np.reshape(matrix, (424, 512, 3))
     return matrix
 
-
+# read depth matrix
 def readDepthmatrix(src):
     with open(src) as f:
         data = f.readlines()
@@ -76,7 +76,7 @@ def readDepthmatrix(src):
     plt.imshow(matrix, cmap='gray')
     plt.show()
 
-
+# read all XYZ matrices
 def readXYZImage(subdir):
     files = os.listdir(subdir)
     timestamp_XYZ = []  # stores the equivalent depth timestamps
@@ -89,7 +89,7 @@ def readXYZImage(subdir):
     timestamp_XYZ = np.array(timestamp_XYZ)
     return timestamp_XYZ, XYZmatrix
 
-
+# read RFID file
 def RFIDMatrix(src):
     ts_sys = []
     phase = []
@@ -121,8 +121,8 @@ def RFIDMatrix(src):
     timestamp_rfid = np.array(timestamp_rfid)
     return timestamp_rfid, phase, rss, doppler, ID
 
-
-def seperate_signals(timestamp_rfid, phase, rss, doppler, ID):
+# separate rfid signal according to tag ID
+def separate_signals(timestamp_rfid, phase, rss, doppler, ID):
     t_dic = {}
     phase_dic = {}
     rss_dic = {}
@@ -144,7 +144,7 @@ def seperate_signals(timestamp_rfid, phase, rss, doppler, ID):
             dop_dic[ID[i]].append(doppler[i])
     return t_dic, phase_dic, rss_dic, dop_dic
 
-
+# Smooth the phase with 2pi and pi shift
 def PhaseSmooth(phase, t1, t2, timestamp):
     shiftmul = 0
     SmoothPhase = []
@@ -186,7 +186,7 @@ def PhaseSmooth(phase, t1, t2, timestamp):
         SmoothPhase.append(current_phase)
     return SmoothPhase
 
-
+# calculate (relative) distance from phase
 def PhasetoDist(phase):
     dist = []
     for ph in phase:
@@ -194,16 +194,14 @@ def PhasetoDist(phase):
         dist.append(d)
     return dist
 
-
-
-
+# calculate the gradient of a signal
 def Gradient(dis, timestamp):
     grad = []
     for i in range(len(dis) - 1):
         grad.append((dis[i + 1] - dis[i]) / (timestamp[i + 1] - timestamp[i]))
     return grad
 
-
+#  read labels
 def readHW(src):
     with open(src) as f:
         array = []
@@ -212,7 +210,7 @@ def readHW(src):
     array = np.array(array)
     return array
 
-
+# smooth the signal according to velocity and acceleration
 def acceleration_smooth(dis, timestamp, th_a):
     velocity = Gradient(dis, timestamp)
     acceleration = Gradient(velocity, timestamp[1:])
@@ -232,6 +230,7 @@ def acceleration_smooth(dis, timestamp, th_a):
     dis_smooth = np.array(dis_smooth)
     return dis_smooth
 
+# generate required camera data for learning
 def camera_raw_data(color_subdir, XYZ_subdir, timestamp_bias):
     color_matrix = readColorImage(color_subdir)
     ts_XYZ, XYZ_matrix = readXYZImage(XYZ_subdir)
@@ -240,11 +239,12 @@ def camera_raw_data(color_subdir, XYZ_subdir, timestamp_bias):
     camera_ts = ts_XYZ - timestamp_bias
     return color_matrix, dismatrix, camera_ts
 
+# generate required rfid data (preprocessed) for learning
 def RFID_raw_data(rfid_src, Tag_ID):
     timestamp_rfid, phase, rss, doppler, ID = RFIDMatrix(rfid_src)
     timestamp_bias = timestamp_rfid[0]
     timestamp_rfid = timestamp_rfid - timestamp_bias
-    t_dic, phase_dic, rss_dic, dop_dic = seperate_signals(timestamp_rfid, phase, rss, doppler, ID)
+    t_dic, phase_dic, rss_dic, dop_dic = separate_signals(timestamp_rfid, phase, rss, doppler, ID)
 
     #preprocess
     SmoothPhase = PhaseSmooth(phase_dic[Tag_ID], CONFIG.PI2_SHIFT_TH, CONFIG.PI_SHIFT_TH, t_dic[Tag_ID])
@@ -271,7 +271,7 @@ if __name__ == '__main__':
 
     timestamp_bias = timestamp_rfid[0]
     timestamp_rfid = timestamp_rfid - timestamp_bias
-    t_dic, phase_dic, rss_dic, dop_dic = seperate_signals(timestamp_rfid, phase, rss, doppler, ID)
+    t_dic, phase_dic, rss_dic, dop_dic = separate_signals(timestamp_rfid, phase, rss, doppler, ID)
 
     # time = np.arange(len(phase_dic[CONFIG.TAG_1]))
     # plt.figure('phase')
